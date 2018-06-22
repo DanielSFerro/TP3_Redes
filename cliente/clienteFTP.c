@@ -23,6 +23,7 @@ char *nome_servidor = argv[1];
 int porta_do_servidor = atoi(argv[2]);
 char *nome_do_arquivo = argv[3];
 int tam_buffer = atoi(argv[4]);
+int tam_janela = atoi(argv[5]);
 
 //Pacote:
 char* pacote = (char*)malloc(tam_buffer * sizeof(char*));
@@ -32,8 +33,8 @@ char* pacoteaux = (char*)malloc((tam_buffer-1) * sizeof(char*));
 pacote[0] = '0';
 
 //checando número de argumentos:
-if (argc != 5){
-  fprintf(stderr, "use:./clienteFTP [IP] [Porta] [arquivo] [Tamanho]\n");
+if (argc != 6){
+  fprintf(stderr, "use:./clienteFTP [IP] [Porta] [arquivo] [Tamanho] [JANELA]\n");
   return -1;
 }
 
@@ -82,6 +83,7 @@ int tamanho_recebido; //recebe tamanho do buffer pela função tp_recvfrom
 int tamanho_do_cabecalho = 1;
 char ack = '0';
 char aux;
+int ack_num;
 int i;
 int Tamanho_Arquivo = 0;
 FILE *received_file;
@@ -99,11 +101,13 @@ do {
       memset(pacote, 0, tam_buffer);
       memset(pacoteaux, 0, tam_buffer-1);
       //Lógica de inverter o ack, uma hora ele confere se é igual a '1', outra se é igual a '0'
-      if (ack == '0'){
-        ack = '1';
+      if (ack = '9'){
+        ack_num = 0;
+        ack = '0';
       }
       else{
-        ack = '0';
+        ack_num = ack_num + 1;
+        itoa (ack_num,ack,10);
       }
 
       //enviar ack de volta para o servidor
