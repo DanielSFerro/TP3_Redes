@@ -18,10 +18,14 @@ int main(int argc, char* argv[]){        //argv[1] = PORTA
 int porta_do_servidor = atoi(argv[1]);
 int tam_buffer = atoi(argv[2]);
 
+//Buffer a ser enviado:
 char buffer[tam_buffer];
+//Auxiliar do buffer - guarda o buffer antigo
+//Se der erro, o buffer deve ser enviado novamente
+//O valor antigo será enviado pelo auxbuffer
 char auxbuffer[tam_buffer];
 
-//checando número de argumentos
+//Checando número de argumentos:
 if (argc != 3){
   fprintf(stderr, "use:./clienteFTP [Porta] [Tamanho]\n");
   return -1;
@@ -36,15 +40,13 @@ int socket;
 //criando socket servidor:
 socket = tp_socket(porta_do_servidor);
 
+//recebe o nome do arquivo:
 if (tp_recvfrom(socket, buffer, tam_buffer, &client) <= 0){
-  printf("erro");
+  printf("\nErro.\n");
   return -1;
 }
 
-//if ((tp_sendto(socket, buffer, tam_buffer, &client)) < 0){
-//  printf("ERRO");
-//}
-
+//Imprime o nome do arquivo + bit frame
 printf("%s\n", buffer);
 
 //recebe o buffer e tira o bit frame, deixando apenas o nome do arquivo em arquivo_requsiitado
@@ -54,14 +56,14 @@ for(i=0; i<tam_buffer; i++){
     arquivo_requisitado[i] = buffer[i+1];
 }
 
-//manda o nome do arquivo de volta pro servidor
+//manda o nome do arquivo de volta pro servidor, sem bit frame:
 tp_sendto(socket, arquivo_requisitado, sizeof(arquivo_requisitado), &client);
 
 printf("%s\n", arquivo_requisitado);
 
 ////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////
+////////////////////ENVIA DADOS AO CLIENTE//////////////////////
 ////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////
 
@@ -76,11 +78,10 @@ if(arquivo == NULL){
 int tamanho_lido;
 int conferir_primeira_leitura = 1;
 char frame = '1';
-char xor;
-char verifica_xor_mesma_resposta;
 memset(buffer, 0, tam_buffer);
 
-//struct para o temporizador
+//Struct para o temporizador:
+//Define o tempo de temporização como 1 segundo:
 struct timeval tv;
   tv.tv_sec = 1; //segundos
   tv.tv_usec = 0; //microsegundos
@@ -90,57 +91,33 @@ setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO,&tv,sizeof(tv));
 
 
 do{
-  //primeira leitura não precisa conferir ack correto
+  //primeira leitura não precisa conferir ack correto:
   if (conferir_primeira_leitura == 1){
-    tamanho_lido = fread(auxbuffer, 1, tam_buffer-2, arquivo);
-
-    char xor = auxbuffer[0];
-    char verifica_xor_mesma_resposta = auxbuffer[0];
-
-    for(i=1; i<tam_buffer-4; ++i)
-      xor = (char)((char)xor ^ auxbuffer[i]);
-
-    for(i=1; i<tam_buffer-4; ++i)
-      verifica_xor_mesma_resposta = (char)(verifica_xor_mesma_resposta ^ auxbuffer[i]);
-
-    printf("O valor de xor é: %c\n", xor);
-    printf("O valor de verifica xor é: %c\n", verifica_xor_mesma_resposta);
-
-
-
-    memmove (buffer + 2, auxbuffer, tam_buffer-2);
+    tamanho_lido = fread(auxbuffer, 1, tam_buffer-1, arquivo);
     buffer[0] = '0';
-    buffer[1] = xor;
-    tp_sendto(socket, buffer, tamanho_lido + 2, &client);
-    printf("Primeira leitura - buffer[1] é: %c\n", buffer[1]);
-    printf("Primeira leitura - xor é: %c\n", xor);
+    memmove (buffer + 1, auxbuffer, tam_buffer-1);
+    tp_sendto(socket, buffer, tamanho_lido + 1, &client);
     strncpy (auxbuffer, buffer, tam_buffer);
     memset(buffer, 0, tam_buffer);
+    //depois da primeira leitura esse if não será acessado novamente:
     conferir_primeira_leitura = -1;
   }
   //única diferença aqui é que agora confere também se o ack está correto
   else{
+    //se o ACK estiver errado, reenvia os dados com o buffer anterior (auxbuffer)
     if ((tp_recvfrom(socket, buffer, tam_buffer, &client)) == -1) {
-      tp_sendto(socket, auxbuffer, tamanho_lido + 2, &client);
+      tp_sendto(socket, auxbuffer, tamanho_lido + 1, &client);
     }
     else{
-
-      if (buffer[1] == '0') {
         memset(auxbuffer, 0, tam_buffer);
         //conferir o ack recebido, que coincide com valor de frame. Caso recebeu, pode enviar o próximo dados.
         if (buffer[0] == frame){
-          tamanho_lido = fread(auxbuffer, 1, tam_buffer-2, arquivo);
-
-          xor = auxbuffer[0];
-          for(i=1; i<tam_buffer-4; ++i)
-            xor = (char)(xor ^ auxbuffer[i]);
-
+          tamanho_lido = fread(auxbuffer, 1, tam_buffer-1, arquivo);
           buffer[0] = frame;
-          buffer[1] = xor;
-          memmove (buffer + 2, auxbuffer, tam_buffer-2);
-          tp_sendto(socket, buffer, tamanho_lido + 2, &client);
-          printf("buffer[1] é: %c\n", buffer[1]);
+          memmove (buffer + 1, auxbuffer, tam_buffer-1);
+          //auxbuffer recebe o valor de buffer, caso precise reenviar:
           strncpy (auxbuffer, buffer, tam_buffer);
+          tp_sendto(socket, buffer, tamanho_lido + 1, &client);
           memset(buffer, 0, tam_buffer);
           if (frame == '0'){
             frame = '1';
@@ -149,20 +126,14 @@ do{
             frame = '0';
           }
         }
-      }
-      else{ //buffer[1] = '1' caso corrompido
-        tp_sendto(socket, auxbuffer, tamanho_lido + 2, &client);
-        printf("enviando de novo: parte corrompida:buffer[1] é: %c\n", auxbuffer[1]);
-        printf("o xor é: %c\n", xor);
-      }
     }
   }
-  //não precisa conferir caso que não recebe o ack correto, mas depois tem que fazer a lógica do temporizador
-  //de caso não recebeu o ack
 
 }while (tamanho_lido > 0);
 
+//Fecha o socket:
 close(socket);
+//Fecha o arquivo:
 fclose(arquivo);
 
 return 0;

@@ -30,13 +30,10 @@ int tp_sendto(int so, char* buff, int buff_len, so_addr* to_addr)
      * exercitar a funcionalidade do protocolo da camada   *
      * acima (o PJD).                                      *
      *******************************************************/
-     if(rand()%5 == 0){
-       printf("Erro em sendto.\n");
-       return -1;
-     }
-     //if(rand()%5 == 0){
-      //  buff[2] = 'a';
-     //}
+    if(rand()%5 == 0){
+     printf("Erro em sendto.\n");
+     return -1;
+    }
     count = sendto(so, (void*)buff, buff_len, 0,
             (struct sockaddr*) to_addr, sizeof(struct sockaddr_in));
     fprintf(stderr,"tp_sendto returning (sent %d bytes)\n", count);
