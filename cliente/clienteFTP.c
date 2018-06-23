@@ -101,7 +101,7 @@ do {
       memset(pacote, 0, tam_buffer);
       memset(pacoteaux, 0, tam_buffer-1);
       //Lógica de inverter o ack, uma hora ele confere se é igual a '1', outra se é igual a '0'
-      if (ack = '9'){
+      if (ack_num = tam_janela){
         ack_num = 0;
         ack = '0';
       }
